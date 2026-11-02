@@ -9,6 +9,34 @@ try { data = loadData(); } catch (error) { app.innerHTML = `<main class="fatal">
 const state = { view: 'today', selected: todayKey(), month: monthKey(todayKey()) + '-01', editing: null, toast: '' };
 let journalTimer;
 let pendingJournal = null;
+let installPrompt = null;
+let installCompleted = false;
+const standaloneMode = window.matchMedia('(display-mode: standalone)');
+const isStandalone = () => standaloneMode.matches || navigator.standalone === true;
+const isIosSafari = () => {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return ios && /Safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent);
+};
+function installSettings() {
+  if (installCompleted || isStandalone()) return '';
+  if (installPrompt) return '<section class="settings-card install-card"><h2>앱 설치</h2><p>홈 화면에서 오늘의 기록을 바로 열 수 있어요.</p><button class="accent-button" data-action="install-app">앱 설치하기</button></section>';
+  if (isIosSafari()) return '<section class="settings-card install-card"><h2>홈 화면에 추가</h2><p>Safari의 공유 버튼을 누른 뒤 <strong>홈 화면에 추가</strong>를 선택하세요.</p></section>';
+  return '';
+}
+function refreshInstallSettings() { if (state.view === 'settings') render(); }
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  if (installCompleted || isStandalone()) return;
+  installPrompt = event;
+  refreshInstallSettings();
+});
+window.addEventListener('appinstalled', () => {
+  installCompleted = true;
+  installPrompt = null;
+  refreshInstallSettings();
+});
+if (standaloneMode.addEventListener) standaloneMode.addEventListener('change', refreshInstallSettings);
+else standaloneMode.addListener?.(refreshInstallSettings);
 const icon = name => ({ today: '◉', calendar: '▦', journal: '▤', rules: '☷', settings: '⚙' })[name];
 const labels = { today: '오늘', calendar: '달력', journal: '일기', rules: '활동', settings: '설정' };
 const percent = rate => rate === null ? '휴식일' : `${rate}%`;
@@ -97,6 +125,7 @@ function render() {
   applyTheme();
   const views = { today: todayView, calendar: calendarView, journal: journalView, rules: rulesView, settings: settingsView };
   app.innerHTML = `<div class="app-shell"><aside class="sidebar"><div class="brand"><span class="brand-icon">✓</span><span>오늘의 기록<small>나의 하루, 차곡차곡</small></span></div><nav aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="nav-item ${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav><div class="sidebar-foot">오늘을 기록하는 작은 습관</div></aside><main class="content">${views[state.view]()}</main><nav class="bottom-nav" aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav></div><div class="toast" role="status" ${state.toast ? '' : 'hidden'}>${escapeHtml(state.toast)}</div>${ruleDialog()}`;
+  if (state.view === 'settings') document.querySelector('.settings-card')?.insertAdjacentHTML('beforebegin', installSettings());
   if (state.editing !== null) document.querySelector('.rule-dialog input[name="name"]')?.focus();
 }
 
@@ -106,6 +135,22 @@ app.addEventListener('click', async event => {
   if (button.dataset.view) { navigate(button.dataset.view); return; }
   if (button.classList.contains('modal-backdrop') && event.target !== button) return;
   const action = button.dataset.action;
+  if (action === 'install-app') {
+    if (!installPrompt || installCompleted || isStandalone()) return;
+    const prompt = installPrompt;
+    try {
+      const result = prompt.prompt();
+      installPrompt = null;
+      refreshInstallSettings();
+      await result;
+      await prompt.userChoice;
+    } catch (error) {
+      installPrompt = null;
+      refreshInstallSettings();
+      notify('설치 안내를 열 수 없습니다. 브라우저 메뉴에서 설치를 시도해 주세요.');
+    }
+    return;
+  }
   if (action === 'go-rules') return navigate('rules');
   if (action === 'go-today') return navigate('today');
   if (action === 'close-dialog') { state.editing = null; render(); return; }
