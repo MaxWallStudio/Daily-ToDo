@@ -19,9 +19,15 @@ npm run preview
 
 `dist/`가 배포할 정적 파일입니다. Cloudflare Pages 또는 Vercel에 저장소를 연결하고 빌드 명령을 `npm run build`, 출력 폴더를 `dist`로 설정하세요. GitHub Pages에도 `dist/` 내용을 게시할 수 있습니다. 상대 경로를 사용하므로 저장소 하위 경로에서도 실행됩니다. 일반 정적 호스팅의 HTTPS 주소 또는 `localhost`에서 Service Worker가 작동합니다.
 
+### GitHub Pages 자동 배포
+
+저장소의 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 설정하세요. `main` 브랜치에 푸시하면 `.github/workflows/deploy-pages.yml`이 `npm run build`를 실행하고 `dist/`를 게시합니다. 배포 주소는 `https://popkont.github.io/Daily-ToDo/`입니다.
+
+이 프로젝트는 Vite가 아닌 자체 정적 빌드 스크립트를 사용합니다. HTML의 리소스 경로, PWA manifest의 `start_url`·`scope`·아이콘 경로, Service Worker 등록과 오프라인 캐시는 앱 경로를 기준으로 설정되어 있어 저장소 하위 경로에서 동작합니다.
+
 ## PWA 설치와 오프라인 사용
 
-Chrome/Edge에서는 주소창의 설치 버튼, 모바일에서는 브라우저의 **홈 화면에 추가** 메뉴를 사용하세요. 첫 온라인 방문에서 앱 파일을 캐시합니다. 이후 오프라인에서도 활동 기록, 일기, 달력, 활동 관리가 동작합니다. 새 버전은 온라인 접속 시 네트워크의 파일을 먼저 받아 캐시를 갱신합니다. 배포 시 `sw.js`의 `CACHE` 값을 새 버전으로 올리면 오래된 캐시가 제거됩니다.
+Chrome/Edge에서는 주소창의 설치 버튼, 모바일에서는 브라우저의 **홈 화면에 추가** 메뉴를 사용하세요. 첫 온라인 방문에서 앱 파일을 캐시합니다. 이후 오프라인에서도 활동 기록, 일기, 달력, 활동 관리가 동작합니다. 새 버전은 온라인 접속 시 네트워크의 파일을 먼저 받아 캐시를 갱신합니다. 배포 시 `sw.js`의 캐시 버전을 올리면 이 앱의 오래된 캐시가 제거됩니다.
 
 ## 데이터와 백업
 
