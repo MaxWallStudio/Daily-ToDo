@@ -11,17 +11,18 @@ let journalTimer;
 let pendingJournal = null;
 let installPrompt = null;
 let installCompleted = false;
+let showInstallHelp = false;
 const standaloneMode = window.matchMedia('(display-mode: standalone)');
 const isStandalone = () => standaloneMode.matches || navigator.standalone === true;
 const isIosSafari = () => {
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   return ios && /Safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent);
 };
+const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isInAppBrowser = () => /Instagram|FBAN|FBAV|KAKAOTALK|Line\//i.test(navigator.userAgent);
 function installSettings() {
   if (installCompleted || isStandalone()) return '';
-  if (installPrompt) return '<section class="settings-card install-card"><h2>앱 설치</h2><p>홈 화면에서 오늘의 기록을 바로 열 수 있어요.</p><button class="accent-button" data-action="install-app">앱 설치하기</button></section>';
-  if (isIosSafari()) return '<section class="settings-card install-card"><h2>홈 화면에 추가</h2><p>Safari의 공유 버튼을 누른 뒤 <strong>홈 화면에 추가</strong>를 선택하세요.</p></section>';
-  return '';
+  return '<section class="settings-card install-card"><h2>앱 설치</h2><p>홈 화면에서 오늘의 기록을 바로 열 수 있어요.</p><button class="accent-button" data-action="install-app">앱 설치하기</button></section>';
 }
 function refreshInstallSettings() { if (state.view === 'settings') render(); }
 window.addEventListener('beforeinstallprompt', event => {
@@ -37,6 +38,16 @@ window.addEventListener('appinstalled', () => {
 });
 if (standaloneMode.addEventListener) standaloneMode.addEventListener('change', refreshInstallSettings);
 else standaloneMode.addListener?.(refreshInstallSettings);
+function installHelpDialog() {
+  if (!showInstallHelp) return '';
+  const ios = isIos();
+  const inApp = isInAppBrowser();
+  const title = ios ? (inApp ? 'Safari에서 홈 화면에 추가' : '홈 화면에 추가') : '외부 브라우저에서 열어주세요';
+  const body = ios
+    ? (inApp ? '현재 브라우저에서는 앱을 바로 설치할 수 없어요. Instagram 메뉴에서 “외부 브라우저에서 열기”를 선택해 Safari에서 연 다음, 공유 버튼 → “홈 화면에 추가”를 선택하세요.' : 'Safari의 공유 버튼을 누른 뒤 “홈 화면에 추가”를 선택하세요.')
+    : (inApp ? '현재 브라우저에서는 앱을 바로 설치할 수 없어요. Instagram 메뉴에서 “외부 브라우저에서 열기”를 선택한 뒤 Chrome 또는 Samsung Internet에서 앱 설치하기를 누르세요.' : '현재 브라우저에서는 앱을 바로 설치할 수 없어요. Chrome 또는 Samsung Internet에서 페이지를 열어 앱 설치하기를 누르세요.');
+  return `<div class="install-help-backdrop" data-action="close-install-help"><section class="install-help" role="dialog" aria-modal="true" aria-labelledby="install-help-title"><h2 id="install-help-title">${title}</h2><p>${body}</p><button class="accent-button" data-action="close-install-help">확인</button></section></div>`;
+}
 const icon = name => ({ today: '◉', calendar: '▦', journal: '▤', rules: '☷', settings: '⚙' })[name];
 const labels = { today: '오늘', calendar: '달력', journal: '일기', rules: '활동', settings: '설정' };
 const percent = rate => rate === null ? '휴식일' : `${rate}%`;
@@ -124,7 +135,7 @@ function applyTheme() { document.documentElement.dataset.theme = data.settings.t
 function render() {
   applyTheme();
   const views = { today: todayView, calendar: calendarView, journal: journalView, rules: rulesView, settings: settingsView };
-  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><div class="brand"><span class="brand-icon">✓</span><span>오늘의 기록<small>나의 하루, 차곡차곡</small></span></div><nav aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="nav-item ${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav><div class="sidebar-foot">오늘을 기록하는 작은 습관</div></aside><main class="content">${views[state.view]()}</main><nav class="bottom-nav" aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav></div><div class="toast" role="status" ${state.toast ? '' : 'hidden'}>${escapeHtml(state.toast)}</div>${ruleDialog()}`;
+  app.innerHTML = `<div class="app-shell"><aside class="sidebar"><div class="brand"><span class="brand-icon">✓</span><span>오늘의 기록<small>나의 하루, 차곡차곡</small></span></div><nav aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="nav-item ${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav><div class="sidebar-foot">오늘을 기록하는 작은 습관</div></aside><main class="content">${views[state.view]()}</main><nav class="bottom-nav" aria-label="주 메뉴">${Object.keys(labels).map(view => `<button class="${state.view === view ? 'active' : ''}" data-view="${view}"><span aria-hidden="true">${icon(view)}</span>${labels[view]}</button>`).join('')}</nav></div><div class="toast" role="status" ${state.toast ? '' : 'hidden'}>${escapeHtml(state.toast)}</div>${ruleDialog()}${installHelpDialog()}`;
   if (state.view === 'settings') document.querySelector('.settings-card')?.insertAdjacentHTML('beforebegin', installSettings());
   if (state.editing !== null) document.querySelector('.rule-dialog input[name="name"]')?.focus();
 }
@@ -136,7 +147,8 @@ app.addEventListener('click', async event => {
   if (button.classList.contains('modal-backdrop') && event.target !== button) return;
   const action = button.dataset.action;
   if (action === 'install-app') {
-    if (!installPrompt || installCompleted || isStandalone()) return;
+    if (installCompleted || isStandalone()) return;
+    if (!installPrompt) { showInstallHelp = true; render(); return; }
     const prompt = installPrompt;
     try {
       const result = prompt.prompt();
@@ -151,6 +163,7 @@ app.addEventListener('click', async event => {
     }
     return;
   }
+  if (action === 'close-install-help') { showInstallHelp = false; render(); return; }
   if (action === 'go-rules') return navigate('rules');
   if (action === 'go-today') return navigate('today');
   if (action === 'close-dialog') { state.editing = null; render(); return; }
@@ -252,4 +265,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) flush
 render();
 let lastToday = todayKey();
 setInterval(() => { const now = todayKey(); if (now !== lastToday) { lastToday = now; flushJournal(); if (state.view === 'today') state.selected = now; state.month = monthKey(now) + '-01'; render(); } }, 60000);
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', async () => {
+  try {
+    const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+    if (navigator.onLine) registration.update().catch(() => {});
+    window.addEventListener('online', () => registration.update().catch(() => {}));
+    window.addEventListener('focus', () => { if (navigator.onLine) registration.update().catch(() => {}); });
+  } catch {}
+});
